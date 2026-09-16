@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+
+# Deployment manages our application Pods
+kind: Deployment
+
+metadata:
+  # Name of the Deployment
+  name: rolling-web
+
+  # Deploy inside our production namespace
+  namespace: production
+
+spec:
+  # Always keep 3 Pods running
+  replicas: 3
+
+  # Kubernetes will replace old Pods gradually
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Maximum 1 old Pod can be unavailable
+      maxUnavailable: 1
+
+      # Maximum 1 extra Pod can be created during update
+      maxSurge: 1
+
+  # Deployment manages Pods having this label
+  selector:
+    matchLabels:
+      app: rolling-web
+
+  # Configuration for every Pod
+  template:
+    metadata:
+      # Label attached to every Pod
+      labels:
+        app: rolling-web
+
+    spec:
+      containers:
+        - name: rolling-web
+
+          # Docker image stored in Docker Hub
+          image: rootmanish/jenkins-devsecops:v1
+
+          # Flask application listens on port 5000
+          ports:
+            - containerPort: 5000

@@ -1,0 +1,26 @@
+apiVersion: v1
+
+# Service gives our Pods a stable network endpoint
+kind: Service
+
+metadata:
+  name: rolling-web-service
+  namespace: production
+
+spec:
+  # NodePort makes the application reachable through a Kubernetes node
+  type: NodePort
+
+  # Send traffic to Pods having this label
+  selector:
+    app: rolling-web
+
+  ports:
+    # Service port
+    - port: 80
+
+      # Forward traffic to Flask's port
+      targetPort: 5000
+
+      # Port exposed on the Kubernetes nodes
+      nodePort: 30080
