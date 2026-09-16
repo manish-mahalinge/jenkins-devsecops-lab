@@ -1,4 +1,5 @@
 pipeline {
+
     agent any
 
     stages {
@@ -21,5 +22,10 @@ pipeline {
             }
         }
 
+        stage('Trivy Image Scan') {
+            steps {
+                sh 'trivy image --severity HIGH,CRITICAL rootmanish/jenkins-devsecops:v1'
+            }
+        }
     }
 }
