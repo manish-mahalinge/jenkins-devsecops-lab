@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         IMAGE_NAME = 'rootmanish/jenkins-devsecops'
-        IMAGE_TAG = 'v1'
+        IMAGE_TAG = "build-${BUILD_NUMBER}"
     }
 
     stages {
