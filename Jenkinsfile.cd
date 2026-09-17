@@ -1,33 +1,8 @@
-// ============================================================
-// JENKINS CD PIPELINE
-// Purpose:
-// Take an already-built Docker image from Docker Hub
-// and deploy that exact image to Kubernetes.
-// ============================================================
 
 pipeline {
-
-    // Jenkins agent where this pipeline will execute.
-    // In your lab, this is your Ubuntu VMware VM.
     agent any
 
-
-    // ============================================================
-    // PARAMETERS
-    // ============================================================
-
     parameters {
-
-        // IMAGE_TAG allows us to choose which Docker image version
-        // we want to deploy.
-        //
-        // Example:
-        // v1
-        // v2
-        // v1.0.1
-        //
-        // This is important in production because CD should deploy
-        // a specific image version instead of building a new image.
         string(
             name: 'IMAGE_TAG',
             defaultValue: 'v1',
@@ -35,195 +10,66 @@ pipeline {
         )
     }
 
-
-    // ============================================================
-    // ENVIRONMENT VARIABLES
-    // ============================================================
-
     environment {
-
-        // Docker Hub repository containing our application image.
         IMAGE_NAME = 'rootmanish/jenkins-devsecops'
-
-        // Kubernetes namespace where the application runs.
         NAMESPACE = 'production'
-
-        // Kubernetes Deployment name.
         DEPLOYMENT = 'rolling-web'
     }
 
-
-    // ============================================================
-    // STAGES
-    // ============================================================
-
     stages {
 
-
-        // ========================================================
-        // STAGE 1: CHECKOUT
-        // ========================================================
-
         stage('Checkout') {
-
             steps {
-
-                // Jenkins downloads/checks out the GitHub repository.
-                //
-                // The CD pipeline needs the Kubernetes YAML files
-                // stored inside the Git repository.
                 checkout scm
             }
         }
 
-
-        // ========================================================
-        // STAGE 2: VERIFY DOCKER IMAGE
-        // ========================================================
-
         stage('Verify Image') {
-
             steps {
-
                 sh '''
-
-                    # Check whether the requested image/tag exists
-                    # in the Docker registry.
-                    #
-                    # Example:
-                    # rootmanish/jenkins-devsecops:v1
-            steps {
-
-                sh '''
-
-                    # Apply the Kubernetes Deployment configuration.
-                    #
-                    # deployment.yaml defines things such as:
-                    # - Deployment name
-                    # - Number of replicas
-                    # - Container
-                    # - Kubernetes labels
-                    # - RollingUpdate strategy
-                    kubectl apply -f deployment.yaml
-
-
-                    # Apply the Kubernetes Service configuration.
-                    #
-                    # service.yaml creates/updates the Service
-                    # that exposes the application.
-                    kubectl apply -f service.yaml
-
+                    docker manifest inspect ${IMAGE_NAME}:${IMAGE_TAG} > /dev/null
+                    echo "Image exists: ${IMAGE_NAME}:${IMAGE_TAG}"
                 '''
             }
         }
 
-
-        // ========================================================
-        // STAGE 4: UPDATE APPLICATION IMAGE
-        // ========================================================
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                    kubectl apply -f deployment.yaml
+                    kubectl apply -f service.yaml
+                '''
+            }
+        }
 
         stage('Update Image') {
-
             steps {
-
                 sh '''
-
-                    # Tell Kubernetes which Docker image the Deployment
-                    # should use.
-                    #
-                    # ${DEPLOYMENT}
-                    #     = rolling-web
-                    #
-                    # ${IMAGE_NAME}:${IMAGE_TAG}
-                    #     = rootmanish/jenkins-devsecops:v1
-                    #
-                    # Kubernetes will detect the image change and
-                    # perform a RollingUpdate according to the
-                    # Deployment strategy.
                     kubectl set image deployment/${DEPLOYMENT} \
                     ${DEPLOYMENT}=${IMAGE_NAME}:${IMAGE_TAG} \
                     -n ${NAMESPACE}
-
                 '''
             }
         }
 
-
-        // ========================================================
-        // STAGE 5: WAIT FOR ROLLOUT
-        // ========================================================
-
         stage('Rollout Status') {
-
             steps {
-
                 sh '''
-
-                    # Wait until Kubernetes finishes the rollout.
-                    #
-                    # Jenkins will wait for the new Pods to become
-                    # successfully available.
-                    #
-                    # If rollout fails or gets stuck for 5 minutes,
-                    # this stage fails.
                     kubectl rollout status deployment/${DEPLOYMENT} \
                     -n ${NAMESPACE} \
                     --timeout=5m
-
                 '''
             }
         }
 
-
-        // ========================================================
-        // STAGE 6: VERIFY DEPLOYMENT
-        // ========================================================
-
         stage('Verify Deployment') {
-
             steps {
-
                 sh '''
-
-                    # Show the Kubernetes Deployment.
-                    #
-                    # This lets us verify replicas and deployment status.
                     kubectl get deployment ${DEPLOYMENT} -n ${NAMESPACE}
-
-
-                    # Show Pods belonging to our application.
-                    #
-                    # -l app=${DEPLOYMENT}
-                    # means select Pods having:
-                    # app=rolling-web
                     kubectl get pods -n ${NAMESPACE} -l app=${DEPLOYMENT}
-
-
-                    # Show the Kubernetes Service.
-                    #
-                    # This confirms the application Service exists.
                     kubectl get service -n ${NAMESPACE}
-
                 '''
             }
         }
     }
-}                    #
-        stage('Deploy to Kubernetes') {
-
-        // STAGE 3: DEPLOY KUBERNETES MANIFESTS
-        // ========================================================
-
-                    # CD should NOT deploy an image that does not exist.
-                    docker manifest inspect ${IMAGE_NAME}:${IMAGE_TAG} > /dev/null
-        // ========================================================
-        }
-
-
-
-                '''
-            }
-
-                    # Print the image that we are going to deploy.
-                    echo "Image exists: ${IMAGE_NAME}:${IMAGE_TAG}"
-
+}
